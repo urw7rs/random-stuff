@@ -1,9 +1,3 @@
-import re
-import string
-from collections import Counter
-
-import torch
-
 import pytorch_lightning as pl
 
 from transformers import (
@@ -13,6 +7,8 @@ from transformers import (
     get_cosine_schedule_with_warmup,
     T5ForConditionalGeneration,
 )
+
+from datasets import load_metric
 
 
 class LitT5(pl.LightningModule):
@@ -24,12 +20,19 @@ class LitT5(pl.LightningModule):
         warmup_steps=1000,
         max_input_length=512,
         max_output_length=64,
+        gradient_checkpointing=False,
+        model_name_or_path="t5-base",
         **kwargs,
     ):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model = T5ForConditionalGeneration.from_pretrained("t5-base")
+        self.model = T5ForConditionalGeneration.from_pretrained(model_name_or_path)
+
+        self.gradient_checkpointing = gradient_checkpointing
+        if gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
+            self.model.config.use_cache = False
 
     def setup(self, stage=None) -> None:
         if stage != "fit":
@@ -40,81 +43,20 @@ class LitT5(pl.LightningModule):
         tb_size = self.hparams.batch_size * max(1, self.trainer.gpus)
         ab_size = self.trainer.accumulate_grad_batches
         self.total_steps = (
-            (len(train_loader.dataset) // tb_size)
-            // ab_size
-            * float(self.trainer.max_epochs)
+            len(train_loader.dataset) // tb_size // ab_size * self.trainer.max_epochs
         )
 
     def forward(self, input_ids, attention_mask, labels=None):
         outputs = self.model(
-            input_ids=input_ids, attention_mask=attention_mask, labels=labels
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels=labels,
         )
         return outputs
 
     def step(self, batch, batch_idx):
         outputs = self(**batch)
         return outputs.loss, outputs.logits
-
-    def normalize_answer(self, s):
-        """Lower text and remove punctuation, storys and extra whitespace."""
-
-        def remove_articles(text):
-            regex = re.compile(r"\b(a|an|the)\b", re.UNICODE)
-            return re.sub(regex, " ", text)
-
-        def white_space_fix(text):
-            return " ".join(text.split())
-
-        def remove_punc(text):
-            exclude = set(string.punctuation)
-            return "".join(ch for ch in text if ch not in exclude)
-
-        def lower(text):
-            return text.lower()
-
-        return white_space_fix(remove_articles(remove_punc(lower(s))))
-
-    def get_tokens(self, s):
-        if not s:
-            return []
-        return self.normalize_answer(s).split()
-
-    def compute_f1(self, a_gold, a_pred):
-        gold_toks = self.get_tokens(a_gold)
-        pred_toks = self.get_tokens(a_pred)
-        common = Counter(gold_toks) & Counter(pred_toks)
-        num_same = sum(common.values())
-        if len(gold_toks) == 0 or len(pred_toks) == 0:
-            # If either is no-answer, then F1 is 1 if they agree, 0 otherwise
-            return int(gold_toks == pred_toks)
-        if num_same == 0:
-            return 0
-        precision = 1.0 * num_same / len(pred_toks)
-        recall = 1.0 * num_same / len(gold_toks)
-        f1 = (2 * precision * recall) / (precision + recall)
-        return f1
-
-    def compute_metrics(self, batch):
-        labels = torch.flatten(batch["labels"])
-        labels = torch.where(labels == -100, 0, labels)
-
-        a_gold_list = torch.flatten(labels).tolist()
-        a_gold_list = self.tokenizer.decode(
-            a_gold_list,
-            skip_special_tokens=True,
-        )
-
-        outputs = self.model.generate(input_ids=batch["input_ids"])
-        a_pred_list = self.tokenizer.decode(
-            outputs[0],
-            skip_special_tokens=True,
-        )
-
-        f1_sum = 0.0
-        for a_gold, a_pred in zip(a_gold_list, a_pred_list):
-            f1_sum += self.compute_f1(a_gold, a_pred)
-
-        return f1_sum / len(a_gold_list)
 
     def configure_optimizers(self):
         if self.hparams.use_adafactor:
@@ -168,11 +110,7 @@ class LitT5(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         outputs = self.model(**batch)
         loss = outputs.loss
-        logits = outputs.logits
-
-        preds = torch.argmax(logits, axis=1)
-        labels = batch["labels"]
 
         self.log("val_loss", loss)
 
-        return {"loss": loss, "preds": preds, "labels": labels}
+        return loss

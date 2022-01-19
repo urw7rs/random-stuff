@@ -21,13 +21,18 @@ def main(args):
         monitor="val_loss",
         save_top_k=3,
         mode="min",
-        auto_insert_metric_name=True,
         save_last=True,
+        dirpath=args.ckpt_dir,
+        filename="{epoch}-{val_loss:.2f}",
     )
 
     wandb.login()
 
-    model = LitT5(**dict_args)
+    if args.ckpt_path is None:
+        model = LitT5(**dict_args)
+    else:
+        model = LitT5.load_from_checkpoint(args.ckpt_path)
+
     coqa = CoQADatamodule(**dict_args)
 
     wandb_logger = WandbLogger(
@@ -68,6 +73,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="flag for Adafactor",
+    )
+    parser.add_argument(
+        "--gradient_checkpointing",
+        action="store_true",
+        default=False,
+        help="flag for gradient checkpointing",
     )
     parser.add_argument(
         "--lr",
@@ -128,6 +139,18 @@ if __name__ == "__main__":
         type=str,
         default="t5-base",
         help="huggingface model name or path",
+    )
+    parser.add_argument(
+        "--ckpt_dir",
+        type=str,
+        default=None,
+        help="checkpointfile directory",
+    )
+    parser.add_argument(
+        "--ckpt_path",
+        type=str,
+        default=None,
+        help="checkpointfile path",
     )
 
     parser = pl.Trainer.add_argparse_args(parser)
