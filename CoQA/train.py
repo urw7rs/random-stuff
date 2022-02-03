@@ -69,6 +69,12 @@ if __name__ == "__main__":
         help="batch size, learning_rate doesn't change with batch size",
     )
     parser.add_argument(
+        "--val_batch_size",
+        type=int,
+        default=16,
+        help="metric batch size",
+    )
+    parser.add_argument(
         "--use_adafactor",
         action="store_true",
         default=False,

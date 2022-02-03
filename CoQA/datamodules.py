@@ -11,17 +11,15 @@ class CoQADatamodule(pl.LightningDataModule):
         model_name_or_path: str,
         max_input_length: int = 512,
         max_output_length: int = 64,
-        batch_size: int = 2,
+        batch_size: int = 4,
+        val_batch_size: int = 8,
         num_workers=0,
         **kwargs,
     ):
         super().__init__()
+        self.save_hyperparameters()
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
-        self.max_input_length = max_input_length
-        self.max_output_length = max_output_length
-        self.train_batch_size = batch_size
-        self.val_batch_size = batch_size
-        self.num_workers = num_workers
 
     def prepare_data(self):
         dataset = load_dataset("coqa")  # noqa
@@ -63,7 +61,7 @@ class CoQADatamodule(pl.LightningDataModule):
 
         model_inputs = self.tokenizer(
             inputs,
-            max_length=self.max_input_length,
+            max_length=self.hparams.max_input_length,
             padding="max_length",
             truncation=True,
         )
@@ -75,7 +73,7 @@ class CoQADatamodule(pl.LightningDataModule):
         # encode the summaries
         labels = self.tokenizer(
             answers,
-            max_length=self.max_output_length,
+            max_length=self.hparams.max_output_length,
             padding="max_length",
             truncation=True,
         ).input_ids
@@ -94,16 +92,16 @@ class CoQADatamodule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.dataset["train"],
-            num_workers=self.num_workers,
+            num_workers=self.hparams.num_workers,
             pin_memory=True,
             shuffle=True,
-            batch_size=self.train_batch_size,
+            batch_size=self.hparams.batch_size,
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.dataset["validation"],
-            num_workers=self.num_workers,
+            num_workers=self.hparams.num_workers,
             pin_memory=True,
-            batch_size=self.val_batch_size,
+            batch_size=self.hparams.val_batch_size,
         )

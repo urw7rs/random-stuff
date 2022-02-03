@@ -41,6 +41,9 @@ RUN pip install jupyterlab \
                 torchaudio==0.10.1+cu113 \
                 pytorch_lightning \
                 wandb \
+                transformers \
+                datasets \
+                setuptools==59.5.0 \
                 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 ENTRYPOINT ["/bin/bash", "-c", "jupyter lab --ip=* --allow-root"]

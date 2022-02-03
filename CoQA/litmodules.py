@@ -4,11 +4,11 @@ from transformers import (
     Adafactor,
     AdamW,
     get_constant_schedule_with_warmup,
-    get_cosine_schedule_with_warmup,
+    get_linear_schedule_with_warmup,
     T5ForConditionalGeneration,
 )
 
-from datasets import load_metric
+from utils import get_max_length
 
 
 class LitT5(pl.LightningModule):
@@ -16,18 +16,23 @@ class LitT5(pl.LightningModule):
         self,
         lr=3e-5,
         batch_size=1,
+        val_batch_size=8,
+        metric_batch_size=16,
         num_train_epochs=15,
         warmup_steps=1000,
         max_input_length=512,
         max_output_length=64,
         gradient_checkpointing=False,
         model_name_or_path="t5-base",
+        num_workers=0,
         **kwargs,
     ):
         super().__init__()
         self.save_hyperparameters()
 
         self.model = T5ForConditionalGeneration.from_pretrained(model_name_or_path)
+        self.model.shared.requires_grad = False
+        self.model.encoder.requires_grad = False
 
         self.gradient_checkpointing = gradient_checkpointing
         if gradient_checkpointing:
@@ -37,6 +42,8 @@ class LitT5(pl.LightningModule):
     def setup(self, stage=None) -> None:
         if stage != "fit":
             return
+
+        # workaround
         train_loader = (
             self.trainer._data_connector._train_dataloader_source.dataloader()
         )
@@ -88,7 +95,7 @@ class LitT5(pl.LightningModule):
             )
             num_training_steps = self.total_steps
             lr_scheduler = {
-                "scheduler": get_cosine_schedule_with_warmup(
+                "scheduler": get_linear_schedule_with_warmup(
                     optimizer,
                     num_training_steps=num_training_steps,
                     num_warmup_steps=self.hparams.warmup_steps,
@@ -100,6 +107,19 @@ class LitT5(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def training_step(self, batch, batch_idx):
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
+
+        max_length = get_max_length(input_ids, 0)
+
+        batch["input_ids"] = input_ids[:, :max_length]
+        batch["attention_mask"] = attention_mask[:, :max_length]
+
+        max_length = get_max_length(labels, 100)
+
+        batch["labels"] = labels[:, :max_length]
+
         outputs = self.model(**batch)
         loss = outputs.loss
 
@@ -108,9 +128,27 @@ class LitT5(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
+
+        max_length = get_max_length(input_ids, 0)
+
+        batch["input_ids"] = input_ids[:, :max_length]
+        batch["attention_mask"] = attention_mask[:, :max_length]
+
+        max_length = get_max_length(labels, 100)
+
+        batch["labels"] = labels[:, :max_length]
+
         outputs = self.model(**batch)
         loss = outputs.loss
 
-        self.log("val_loss", loss)
-
         return loss
+
+    def validation_epoch_end(self, outputs):
+        total_loss = 0.0
+        for loss in outputs:
+            total_loss += loss
+
+        self.log("val_loss", total_loss / len(outputs), on_epoch=True)
