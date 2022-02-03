@@ -123,7 +123,7 @@ class LitT5(pl.LightningModule):
         outputs = self.model(**batch)
         loss = outputs.loss
 
-        self.log("train_loss", loss)
+        self.log("train/loss", loss)
 
         return loss
 
@@ -151,4 +151,4 @@ class LitT5(pl.LightningModule):
         for loss in outputs:
             total_loss += loss
 
-        self.log("val_loss", total_loss / len(outputs), on_epoch=True)
+        self.log("val/loss", total_loss / len(outputs), on_epoch=True)
