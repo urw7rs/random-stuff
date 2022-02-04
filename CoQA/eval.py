@@ -179,12 +179,6 @@ if __name__ == "__main__":
         help="checkpointfile path",
     )
     parser.add_argument(
-        "--pred_file",
-        type=str,
-        default="preds.json",
-        help="prediction file path",
-    )
-    parser.add_argument(
         "--output_path",
         type=str,
         default="metrics.json",
