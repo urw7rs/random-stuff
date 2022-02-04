@@ -44,6 +44,7 @@ RUN pip install jupyterlab \
                 transformers \
                 datasets \
                 setuptools==59.5.0 \
+                torchmetrics<0.7 \
                 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 ENTRYPOINT ["/bin/bash", "-c", "jupyter lab --ip=* --allow-root"]
