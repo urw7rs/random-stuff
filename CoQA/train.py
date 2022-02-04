@@ -17,15 +17,6 @@ from pytorch_lightning.loggers import WandbLogger
 def main(args):
     dict_args = vars(args)
 
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
-        save_top_k=3,
-        mode="min",
-        save_last=True,
-        dirpath=args.ckpt_dir,
-        filename="{epoch}-{val_loss:.2f}",
-    )
-
     wandb.login()
 
     if args.ckpt_path is None:
@@ -38,7 +29,15 @@ def main(args):
     wandb_logger = WandbLogger(
         name=args.name,
         project=args.project_name,
+        save_dir=args.ckpt_path,
     )
+    wandb_logger.watch(model, log="all", log_freq=1000)
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        mode="min",
+    )
+
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
         patience=3,

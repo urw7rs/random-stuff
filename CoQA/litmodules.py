@@ -32,7 +32,6 @@ class LitT5(pl.LightningModule):
 
         self.model = T5ForConditionalGeneration.from_pretrained(model_name_or_path)
         self.model.shared.requires_grad = False
-        self.model.encoder.requires_grad = False
 
         self.gradient_checkpointing = gradient_checkpointing
         if gradient_checkpointing:
@@ -123,7 +122,7 @@ class LitT5(pl.LightningModule):
         outputs = self.model(**batch)
         loss = outputs.loss
 
-        self.log("train/loss", loss)
+        self.log("train_loss", loss)
 
         return loss
 
@@ -144,11 +143,6 @@ class LitT5(pl.LightningModule):
         outputs = self.model(**batch)
         loss = outputs.loss
 
+        self.log("val_loss", loss)
+
         return loss
-
-    def validation_epoch_end(self, outputs):
-        total_loss = 0.0
-        for loss in outputs:
-            total_loss += loss
-
-        self.log("val/loss", total_loss / len(outputs), on_epoch=True)
