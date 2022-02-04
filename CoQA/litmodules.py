@@ -25,13 +25,15 @@ class LitT5(pl.LightningModule):
         gradient_checkpointing=False,
         model_name_or_path="t5-base",
         num_workers=0,
+        freeze_layers=None,
         **kwargs,
     ):
         super().__init__()
         self.save_hyperparameters()
 
         self.model = T5ForConditionalGeneration.from_pretrained(model_name_or_path)
-        self.model.shared.requires_grad = False
+        for layer in freeze_layers:
+            getattr(self.model, layer).requires_grad = False
 
         self.gradient_checkpointing = gradient_checkpointing
         if gradient_checkpointing:

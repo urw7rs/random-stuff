@@ -31,7 +31,6 @@ def main(args):
         project=args.project_name,
         save_dir=args.ckpt_path,
     )
-    wandb_logger.watch(model, log="all", log_freq=1000)
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
@@ -156,6 +155,11 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="checkpointfile path",
+    )
+    parser.add_argument(
+        "--freeze_layers",
+        nargs="*",
+        help="list of layers to freeze",
     )
 
     parser = pl.Trainer.add_argparse_args(parser)
