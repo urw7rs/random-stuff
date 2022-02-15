@@ -25,7 +25,7 @@ class LitT5(pl.LightningModule):
         gradient_checkpointing=False,
         model_name_or_path="t5-base",
         num_workers=0,
-        freeze_layers=None,
+        freeze_layers=[],
         **kwargs,
     ):
         super().__init__()
@@ -80,11 +80,23 @@ class LitT5(pl.LightningModule):
                 scale_parameter=True,
                 warmup_init=False,
             )
-            lr_scheduler = {
-                "scheduler": get_constant_schedule_with_warmup(
+
+            num_training_steps = self.total_steps
+
+            if self.hparams.constant_schedule:
+                scheduler = get_constant_schedule_with_warmup(
                     optimizer,
                     num_warmup_steps=self.hparams.warmup_steps,
-                ),
+                )
+            else:
+                scheduler = get_linear_schedule_with_warmup(
+                    optimizer,
+                    num_training_steps=num_training_steps,
+                    num_warmup_steps=self.hparams.warmup_steps,
+                )
+
+            lr_scheduler = {
+                "scheduler": scheduler,
                 "interval": "step",
                 "name": "learning_rate",
             }
@@ -95,12 +107,21 @@ class LitT5(pl.LightningModule):
                 weight_decay=self.hparams.weight_decay,
             )
             num_training_steps = self.total_steps
-            lr_scheduler = {
-                "scheduler": get_linear_schedule_with_warmup(
+
+            if self.hparams.constant_schedule:
+                scheduler = get_constant_schedule_with_warmup(
+                    optimizer,
+                    num_warmup_steps=self.hparams.warmup_steps,
+                )
+            else:
+                scheduler = get_linear_schedule_with_warmup(
                     optimizer,
                     num_training_steps=num_training_steps,
                     num_warmup_steps=self.hparams.warmup_steps,
-                ),
+                )
+
+            lr_scheduler = {
+                "scheduler": scheduler,
                 "interval": "step",
                 "name": "learning_rate",
             }
@@ -116,8 +137,6 @@ class LitT5(pl.LightningModule):
 
         batch["input_ids"] = input_ids[:, :max_length]
         batch["attention_mask"] = attention_mask[:, :max_length]
-
-        max_length = get_max_length(labels, 100)
 
         batch["labels"] = labels[:, :max_length]
 
@@ -137,8 +156,6 @@ class LitT5(pl.LightningModule):
 
         batch["input_ids"] = input_ids[:, :max_length]
         batch["attention_mask"] = attention_mask[:, :max_length]
-
-        max_length = get_max_length(labels, 100)
 
         batch["labels"] = labels[:, :max_length]
 

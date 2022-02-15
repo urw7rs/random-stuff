@@ -34,12 +34,16 @@ def main(args):
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
+        save_top_k=3,
         mode="min",
+        save_last=True,
+        dirpath=args.ckpt_dir,
+        filename="{epoch}-{val_loss:.6f}",
     )
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
-        patience=3,
+        patience=5,
         strict=False,
         verbose=False,
         mode="min",
@@ -159,7 +163,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--freeze_layers",
         nargs="*",
+        default=[],
         help="list of layers to freeze",
+    )
+    parser.add_argument(
+        "--constant_schedule",
+        action="store_true",
+        default=False,
+        help="constant scheduler flag",
     )
 
     parser = pl.Trainer.add_argparse_args(parser)
