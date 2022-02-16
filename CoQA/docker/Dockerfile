@@ -30,3 +30,21 @@ RUN echo "conda activate conda" >> /root/.bashrc
 
 # Make bash excecute .bashrc even when running non-interactively.
 ENV BASH_ENV /root/.bashrc
+
+RUN conda install nodejs \
+    jupyterlab_widgets \
+    ipywidgets \
+    -c conda-forge
+
+RUN pip install jupyterlab \
+                torch==1.10.1+cu113 \
+                torchvision==0.11.2+cu113 \
+                torchaudio==0.10.1+cu113 \
+                pytorch_lightning \
+                wandb \
+                transformers \
+                datasets \
+                setuptools==59.5.0 \
+                "torchmetrics<0.7" \
+                deepspeed \
+                -f https://download.pytorch.org/whl/cu113/torch_stable.html
