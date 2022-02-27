@@ -138,7 +138,9 @@ class LitT5(pl.LightningModule):
         batch["input_ids"] = input_ids[:, :max_length]
         batch["attention_mask"] = attention_mask[:, :max_length]
 
-        batch["labels"] = labels[:, :max_length]
+        max_length = get_max_length(labels, -100)
+
+        batch["labels"] = labels[:, :max_length].clone()
 
         outputs = self.model(**batch)
         loss = outputs.loss
@@ -157,7 +159,9 @@ class LitT5(pl.LightningModule):
         batch["input_ids"] = input_ids[:, :max_length]
         batch["attention_mask"] = attention_mask[:, :max_length]
 
-        batch["labels"] = labels[:, :max_length]
+        max_length = get_max_length(labels, -100)
+
+        batch["labels"] = labels[:, :max_length].clone()
 
         outputs = self.model(**batch)
         loss = outputs.loss
